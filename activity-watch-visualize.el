@@ -18,17 +18,11 @@
 
 ;;; Code:
 
-(defvar activity-watch--last-data)
+(defvar awv--last-data)
 
 (defun awv--format-time (timestamp)
   "Format the given TIMESTAMP."
-  (let* ((time (parse-time-string timestamp))
-         (year (nth 5 time))
-         (month (nth 4 time))
-         (day (nth 3 time))
-         (hour (nth 2 time))
-         (minute (nth 1 time)))
-    (format "%04d/%02d/%02d %02d:%02d" year month day hour minute)))
+  (format-time-string "%Y/%m/%d %H:%M" (date-to-time timestamp)))
 
 (defun awv--handle-unknown (v)
   "Change V to a - if it's unknown."
@@ -56,7 +50,7 @@
     :sync t
     :success (cl-function
               (lambda (&key data &allow-other-keys)
-                (setq activity-watch--last-data data)))))
+                (setq awv--last-data data)))))
 
 (defun awv--write-org-header ()
   "Write the list header."
@@ -81,7 +75,7 @@
 
 (defun awv--write-org-data (filter)
   "Write the data applying the FILTER."
-  (cl-loop for pulse across (seq-take-while filter activity-watch--last-data)
+  (cl-loop for pulse across (seq-take-while filter awv--last-data)
            do
            (princ (concat (awv--pulse-to-string pulse) "\n"))))
 

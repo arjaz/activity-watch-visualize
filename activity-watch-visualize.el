@@ -4,7 +4,7 @@
 ;; Maintainer: Eugene Rossokha <arjaz@protonmail.com>
 ;; Website: https://activitywatch.net
 ;; Homepage: https://github.com/arjaz/activity-watch-visualize
-;; Package-Requires ((emacs "27") (request "0") (json "0") (cl-lib "0") (activity-watch-mode "1.0.2") ("org" "9"))
+;; Package-Requires ((emacs "27") (request "0") (json "0") (cl-lib "0") (activity-watch-mode "1.0.2") (org "9"))
 ;; Version: 0.0.1
 
 ;;; Commentary:
@@ -30,7 +30,7 @@
       "-"
     v))
 
-(defun awv--pulse-to-string (pulse)
+(defun awv--pulse-to-org-string (pulse)
   "Convert the given PULSE to a string."
   (let* ((data (alist-get 'data pulse))
          (timestamp (alist-get 'timestamp pulse))
@@ -41,7 +41,7 @@
             (awv--format-time timestamp)
             (awv--handle-unknown project)
             (awv--handle-unknown branch)
-            (awv--handle-unknown file))))
+            (abbreviate-file-name (awv--handle-unknown file)))))
 
 (defun awv--request-data ()
   "Request the ActivityWatch data and store it."
@@ -73,26 +73,31 @@
          (year    (nth 5 time)))
     (and (= p-day day) (= p-month month) (= p-year year))))
 
-(defun awv--write-org-data (filter)
-  "Write the data applying the FILTER."
-  (cl-loop for pulse across (seq-take-while filter awv--last-data)
-           do
-           (princ (concat (awv--pulse-to-string pulse) "\n"))))
+(defun awv--filtered-data (data filters)
+  "Apply all FILTERS to the elements of the DATA sequence."
+  (seq-reduce (lambda (data filter) (seq-filter filter data)) filters data))
+
+(defun awv--write-org-data (filters)
+  "Write the data filtered with FILTERS as an org file."
+  (cl-loop for pulse in (awv--filtered-data awv--last-data filters)
+           do (princ (concat (awv--pulse-to-org-string pulse) "\n"))))
 
 ;; TODO: fancy filters and customization
 ;;       maybe have transient?
-(defun activity-watch-visualize-as-org ()
-  "Present the ActivityWatch data for today."
+;;       check https://github.com/alphapapa/taxy.el/
+(defun activity-watch-visualize-as-org (&optional filters)
+  "Present the ActivityWatch data in a new org buffer applying the FILTERS."
   (interactive)
-  (awv--request-data)
-  (with-output-to-temp-buffer "*activity-watch*"
-    (awv--write-org-header)
-    (awv--write-org-data #'awv--today-p)
-    (awv--write-org-footer)
-    (pop-to-buffer "*activity-watch*")
-    (org-mode)
-    (org-table-align)
-    (read-only-mode)))
+  (let ((filters (or filters (list #'awv--today-p))))
+    (awv--request-data)
+    (with-output-to-temp-buffer "*activity-watch*"
+      (awv--write-org-header)
+      (awv--write-org-data filters)
+      (awv--write-org-footer)
+      (pop-to-buffer "*activity-watch*")
+      (org-mode)
+      (org-table-align)
+      (read-only-mode))))
 
 (provide 'activity-watch-visualize)
 ;;; activity-watch-visualize.el ends here
